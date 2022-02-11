@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/emicklei/proto"
-	"gitlab.heywoods.cn/go-sdk/proto-format/pkg"
+	"github.com/actorbuf/proto-format/pkg"
 	"io"
 	"io/ioutil"
 	"os"
