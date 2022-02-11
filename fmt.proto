@@ -1,0 +1,291 @@
+syntax = "proto3";
+
+package model;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "model";
+
+
+enum ErrCode {
+    ErrCodeNil                  =    0;
+    ErrCodeNoAuth               = 4001; // 请登录
+    ErrCodeSpeechGroupIsDefault = 4102; // 默认分组无法操作
+    ErrCodeSpeechGroupIsExist   = 4103; // 已存在相同名称的分组
+}
+
+message GetRobotsRunningRCResp {
+    enum AAA {
+        Nil = 0;
+    }
+    message RunningData {
+        string           robot_wx_id             =  1;
+        int64            private_msg_count       =  2;
+        int64            group_msg_count         =  3;
+        bool             is_doing_watch_moment   =  4;
+        bool             is_doing_star_moment    =  5;
+        bool             is_doing_send_moment    =  6;
+        bool             is_doing_comment_moment =  7;
+        bool             is_doing_private        =  8;
+        bool             is_doing_group          =  9;
+        map<int32,int32> a                       = 10;
+    }
+    repeated RunningData data = 1;
+}
+
+// @table_name: tb_ws_connect_record
+message ModelWsConnectRecord {
+    message Hello {
+        string hello = 1;
+    }
+    string                    id         =  1; // 主键ID wxid md5
+    string                    user_id    =  2; // 机器人所属用户id
+    int64                     created_at =  3; // 记录创建时间
+    int64                     login_at   =  4; // 登录时间
+    int64                     logout_at  =  5; // 登出时间
+    string                    bind_id    =  6; // 该ws绑定的id
+    google.protobuf.Timestamp expired_at = 10; // 过期时间
+}
+
+// @desc: 机器人会话统计
+// @table_name:robot_session_count
+message ModelRobotSessionCount {
+    string id                    =  1; // 主键ID md5(collected_at+shop_id+user_id+robot_wx_id)
+    string shop_id               =  2; // 商户ID
+    string user_id               =  3; // 用户ID
+    string robot_wx_id           =  4; // 机器人ID
+    int64  private_session_count =  5; // 私聊有效会话数量
+    int64  private_recv_count    =  6; // 收到私聊消息数量
+    int64  private_send_count    =  7; // 收到私聊消息数量
+    int64  group_session_count   =  8; // 群聊有效会话数量
+    int64  group_recv_count      =  9; // 收到群聊消息数量
+    int64  group_send_count      = 10; // 收到群聊消息数量
+    int32  collected_at          = 11; // 收集时间 格式: int(yyyy:mm:dd) eg. 20201127
+}
+
+// @table_name: tb_crm_robot_system_msg
+message ModelTbRobotSystemMsg {
+    string id           = 1; // 主键ID
+    string robot_wx_id  = 4; // 机器人id
+    string user_wx_id   = 5; // 群聊id
+    int32  msg_type     = 6; // 消息类型
+    int64  call_back_at = 7; // 消息返回时间
+    // @json: -
+    google.protobuf.Timestamp expired_at   = 20; // 失效时间（用于消息的失效）
+    ContentData               content_data = 21; // 消息内容
+}
+
+message ContentData {
+             string    raw_content       =  1; // 元始的xml数据 做数据转发时用；
+             string    content           =  2; // 1文本的内容；2 语音的url（amr格式）；6小程序的xml；
+             string    share_title       =  3; // 5链接的标题；
+             string    share_desc        =  4; // 5链接的描述；
+             string    share_url         =  5; // 5链接的URL；
+             string    file_url          =  6; // 3图片的url；4视频的Url；5链接的分享图；8表情的url（gif）；9文件的url；
+             string    share_user_name   =  7; // 7名片的被分享（名片）好友id；
+             string    share_nick_name   =  8; // 7名片的被分享（名片）的昵称；
+    repeated AtMsgItem at_msg_item       =  9; // 发送群@部分人消息的数据
+             int32     wx_msg_type       = 10; // 消息类型: 1 文本；2 语音；3 图片；4 视频；5 链接；6 小程序；7 名片；8 表情；9 文件；10 验证消息（如好友申请）；11 视频号消息；12 视频号直播间；13 视频号名片；
+             double    file_size         = 11; // 文件大小KB单位
+             int32     resource_duration = 12; // 媒体时长 统一单位s
+    repeated string    at_user_name      = 13; // 群聊at消息
+             bool      is_at_myself      = 14; // 是否有at我自己 单独一个字段 方便维护和查询
+             string    raw_file_url      = 15; // 图片视频的源文件
+}
+
+message AtMsgItem {
+    int32  SubType  = 1; // 0：文本内容，1：@某人
+    string Content  = 2; // 文本内容
+    string UserName = 3; // @的用户(wx_id)
+    string NickName = 4; // @的昵称
+}
+
+// @route_group: true
+// @route_api: /api/speech
+// @gen_to: ./app/controller/speech_controller.go
+service SpeechArt {
+    // @desc: 话术库组：列表 不传递ID时返回默认分组 传递ID时返回该ID对应的话术库内容
+    // @author: 徐业
+    // @method: POST
+    // @api: /group_list
+    // @error:
+    //	ErrCodeNoAuth
+    rpc SpeechGroupList (SpeechGroupListReq) returns (SpeechGroupListResp);
+    // @desc: 话术库组：删除
+    // @author: 徐业
+    // @method: POST
+    // @api: /group_delete
+    // @error:
+    //	ErrCodeSpeechGroupIsDefault
+    //	ErrCodeNoAuth
+    rpc SpeechGroupDelete (SpeechGroupDeleteReq) returns (SpeechGroupDeleteResp);
+    // @desc: 话术库组：新建
+    // @author: 徐业
+    // @method: POST
+    // @api: /group_create
+    // @error:
+    //	ErrCodeNoAuth
+    //	ErrCodeSpeechGroupIsDefault
+    //	ErrCodeSpeechGroupIsExist
+    rpc SpeechGroupCreate (SpeechGroupCreateReq) returns (SpeechGroupCreateResp);
+    // @desc: 话术库组：更新
+    // @author: 徐业
+    // @method: POST
+    // @api: /group_update
+    // @error:
+    //	ErrCodeNoAuth
+    //	ErrCodeSpeechGroupIsDefault
+    rpc SpeechGroupUpdate (SpeechGroupUpdateReq) returns (SpeechGroupUpdateResp);
+    // @desc: 话术库：创建话术
+    // @author: 徐业
+    // @method: POST
+    // @api: /speech_create
+    // @error:
+    //	ErrCodeNoAuth
+    rpc SpeechRecordCreate (SpeechRecordCreateReq) returns (SpeechRecordCreateResp);
+    // @desc: 话术库：删除话术
+    // @author: 徐业
+    // @method: POST
+    // @api: /speech_delete
+    // @error:
+    //	ErrCodeNoAuth
+    rpc SpeechRecordDelete (SpeechRecordDeleteReq) returns (SpeechRecordDeleteResp);
+    // @desc: 话术库：话术修改
+    // @author: 徐业
+    // @method: POST
+    // @api: /speech_update
+    // @error:
+    //	ErrCodeNoAuth
+    rpc SpeechRecordUpdate (SpeechRecordUpdateReq) returns (SpeechRecordUpdateResp);
+    // @desc: 话术库：话术列表
+    // @author: 徐业
+    // @method: POST
+    // @api: /speech_list
+    // @error:
+    //	ErrCodeNoAuth
+    rpc SpeechRecordList (SpeechRecordListReq) returns (SpeechRecordListResp);
+}
+
+
+message SpeechGroupListReq {
+    string speech_group_id = 1; // 话术组ID 不传递则显示 “默认分组”
+}
+
+message SpeechGroupListResp {
+    // @desc: 话术库列表
+    repeated ModelSpeechGroup speech_group_list = 1;
+    // @desc: 某一个话术库对应的所有话术
+    repeated ModelSpeech speech_record_list = 2;
+}
+
+message ModelSpeechGroup {
+    string id          = 1; // 素材组ID
+    string speech_name = 2; // 素材组名称
+    string shop_id     = 3; // 商户ID
+    int64  created_at  = 4; // 创建时间
+    bool   is_default  = 5; // 是否是默认分组
+}
+
+message ModelSpeech {
+             string       id              = 1; // 素材ID
+             int64        created_at      = 2; // 创建时间
+             int64        updated_at      = 3; // 更新时间
+             bool         is_default      = 4; // 是否是默认分组的
+             string       speech_group_id = 5; // 话术组ID
+             string       shop_id         = 6; // 商户id
+             string       speech_name     = 7; // 话术名称
+    repeated SpeechDetail speech_list     = 8; // 素材内容
+}
+
+message SpeechDetail {
+    int64  sort              = 1; // 排序序号
+    int32  msg_type          = 2; // 话术类型
+    string content           = 3; // 文本的内容；语音的url（amr格式）；小程序的xml；
+    string file_url          = 4; // 图片的url；视频的Url；链接的分享图；表情的url；文件的url；
+    double file_size         = 5; // 文件大小KB单位
+    int32  resource_duration = 6; // 媒体时长 统一单位s
+}
+
+message SpeechGroupDeleteReq {
+    // @v: required
+    string speech_group_id = 1; // 话术库组ID
+}
+
+message SpeechGroupDeleteResp {}
+
+message SpeechRecordDeleteReq {
+    // @v: required
+    // @desc: 话术ID
+    string speech_id = 1;
+}
+
+message SpeechRecordDeleteResp {}
+
+message SpeechRecordUpdateReq {
+    // @v: required
+    string speech_group_id = 1; // 话术组ID
+    // @v: required
+    ModelSpeech speech = 2; // 话术记录
+}
+
+message SpeechRecordUpdateResp {}
+
+message SpeechRecordCreateReq {
+    // @v: required
+    string speech_group_id = 1; // 话术组ID
+    // @v: required
+    ModelSpeech speech = 2; // 话术记录
+}
+
+message SpeechRecordCreateResp {}
+
+message SpeechGroupInfoReq {}
+
+message SpeechGroupInfoResp {}
+
+message SpeechGroupCreateReq {
+    // @v: required
+    string speech_group_name = 1; // 创建的话术库名称
+}
+
+message SpeechGroupCreateResp {}
+
+message SpeechGroupUpdateReq {
+    // @v: required
+    string speech_group_id = 1; // 话术库组ID
+    // @v: required
+    string speech_group_name = 2; // 话术库组名称
+}
+
+message SpeechGroupUpdateResp {}
+
+message SpeechRecordListReq {
+    string speech_group_id = 1; // 话术库组ID 不填写时返回默认话术组 列表
+}
+
+message SpeechRecordListResp {
+    repeated ModelSpeech list = 1;
+}
+
+// 客户标记组
+message ModelFriendMarkGroup {
+    string id      = 1; // 组id
+    string shop_id = 2; // 商户id
+    string name    = 3; // 组名
+}
+
+// 客户标记
+message ModelFriendMark {
+    string id       = 1; // 标记id
+    string shop_id  = 2; // 商户id
+    string group_id = 3; // 组id
+    string name     = 4; // 标记名
+}
+
+message ModelRobotFriendMark {
+    string id          = 1; // 关系id
+    string shop_id     = 2; // 商户id
+    string robot_wx_id = 3; // 机器人id
+    string user_wx_id  = 4; // 客户id
+    string mark_id     = 5; // 标记id
+}

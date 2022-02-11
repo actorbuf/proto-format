@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package model;
+
+
+option go_package = "model";
+message ContentData {
+    message AtMsgItem {
+        uint32 SubType  = 1; //
+        string Content  = 2; //
+        string UserName = 3; //
+        string NickName = 4; //
+    }
+
+             string    RawContent       =  1; //
+             string    Content          =  2; //
+             string    ShareTitle       =  3; //
+             string    ShareDesc        =  4; //
+             string    ShareUrl         =  5; //
+             string    FileUrl          =  6; //
+             string    ShareUserName    =  7; //
+             string    ShareNickName    =  8; //
+    repeated AtMsgItem T                =  9; //
+             uint32    WxMsgType        = 10; //
+             uint32    FileSize         = 11; //
+             uint32    ResourceDuration = 12; //
+}
+
